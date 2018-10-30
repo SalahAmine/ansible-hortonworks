@@ -7,8 +7,14 @@
 ######################################################
 
 [hdp-master]
-master01 ansible_host=192.168.0.2 ansible_user=root ansible_ssh_private_key_file="~/.ssh/id_rsa" rack=/default-rack
+vagrant1  ansible_host=10.0.0.11
 
 [hdp-slave]
-slave01 ansible_host=192.168.0.3 ansible_user=root ansible_ssh_private_key_file="~/.ssh/id_rsa" rack=/default-rack
-#slave02 ansible_host=192.168.0.4 ansible_user=root ansible_ssh_pass=changeme
+vagrant2  ansible_host=10.0.0.12
+vagrant3  ansible_host=10.0.0.13
+
+
+[hadoop-cluster]
+vagrant1  ansible_host=10.0.0.11
+vagrant2  ansible_host=10.0.0.12
+vagrant3  ansible_host=10.0.0.13

@@ -1,0 +1,96 @@
+---
+- name: Prepare OS
+  hosts: vagrant
+  vars_files :
+    - "vars/packages_vars.yml"
+    - "default/main.yml"
+
+# become a root user ,. i.e exexute as root
+  become: True
+  tasks:
+    - name: Install required packages
+    # This module actually calls the pertinent package modules for each
+    #system (apt, yum, etc).
+      package:
+        name: "{{ item }}"
+        # equivalent to yum check-update
+        #The command will refresh the package index and check for available updates
+        update_cache: yes
+        # install package = make use is present
+        state: installed
+      # http://jinja.pocoo.org/docs/dev/templates/#join
+      # join filter concatenate package items with ,
+      with_items: "{{ packages | join(',') }}"
+
+    - name: Install OpenJDK
+      package:
+        name: "{{ openjdk_package }}"
+        update_cache: yes
+        state: installed
+
+    - name: Make sure the NTP service is started
+      service:
+        name: "{{ ntp_service_name }}"
+        state: started
+
+    - name: Make sure the NTP service is enabled
+      service:
+        name: "{{ ntp_service_name }}"
+        enabled: yes
+
+    - name: Make sure /etc/security/limits.d exists
+      file:
+        path: /etc/security/limits.d
+        mode: 0755
+        state: directory
+    # controle des ressources sys
+    # https://www.admin-linux.fr/controle-des-ressources-systemes-ulimit/
+    - name: Set nofile and nproc limits
+      blockinfile:
+        path: /etc/security/limits.d/99-hadoop.conf
+        create: yes
+        mode: 0644
+        block: |
+          * soft nofile 32768
+          * hard nofile 32768
+          * soft nproc 32768
+          * hard nproc 32768
+        marker: "# {mark} ANSIBLE MANAGED BLOCK"
+    #https://community.hortonworks.com/articles/33522/swappiness-setting-recommendation.html
+    - name: Set swappiness to {{ swappiness }}
+      sysctl:
+        name: vm.swappiness
+        value: "{{ swappiness }}"
+        state: present
+        reload: yes
+        # ignoreerrors: yes
+      tags:
+        - swappiness
+
+    - block:
+        - name: Stop the firewall service
+          service:
+            name: "{{ firewall_service_name }}"
+            state: stopped
+          ignore_errors: true
+        - name: debug some vars
+          debug:
+            msg: "ansible_default_ipv4  {{ ansible_default_ipv4 }}  {{ firewall_service_name }}"
+          when: ansible_default_ipv4.gateway is defined
+        - name: Disable the firewall service
+          service:
+            name: "{{ firewall_service_name }}"
+            enabled: no
+          # ignore_errors: true
+      when: disable_firewall and firewall_service_name is defined
+      tags: disable_firewall
+    # - name: Add mappings to /etc/hosts
+    #   lineinfile:
+    #     path: /etc/hosts
+    #     regexp: "^{{ hostvars[item]['ansible_'~hostvars[item].ansible_default_ipv4.alias]['ipv4']['address'] }}.*"
+    #     line: "{{ hostvars[item]['ansible_'~hostvars[item].ansible_default_ipv4.alias]['ipv4']['address'] }} {{ hostvars[item]['ansible_nodename'] }}"
+    #     insertafter: "^127..*$"
+    #     state: present
+    #   with_items:
+    #     - "{{ groups['hadoop-cluster']|sort(reverse=True) }}"
+    #   when: not external_dns

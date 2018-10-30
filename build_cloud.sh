@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 
+# fix ${cloud_to_use} var 
 source $(dirname "${BASH_SOURCE[0]}")/set_cloud.sh
 
 case $cloud_to_use in
